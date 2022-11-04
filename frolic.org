@@ -1,0 +1,334 @@
+#+TITLE: Frolic Emacs
+#+AUTHOR: Marvin Liu
+
+
+#+BEGIN_QUOTE
+Frolic means "to play and run about happily."
+-- Merriam-Webster Word of the Day: August 1, 2022
+#+END_QUOTE
+
+* Package Mangement
+
+I use use-package with quelpa because quelpa is cool. Quelpa allows you to
+install any third party source as long as you can provide a MELPA style recipes.
+=Straight.el= might be a better choice if you want more replicable support.
+
+#+BEGIN_SRC elisp
+  (unless (file-exists-p "~/.emacs.d/bootstrap/quelpa.el")
+    (make-directory "~/.emacs.d/bootstrap" t)
+    (url-copy-file "https://raw.githubusercontent.com/quelpa/quelpa/master/quelpa.el" "~/.emacs.d/bootstrap/quelpa.el" t)
+  )
+  (add-to-list 'load-path "~/.emacs.d/bootstrap/")
+
+  (require 'quelpa)
+
+  (quelpa
+   '(quelpa-use-package
+     :repo "quelpa/quelpa-use-package"
+     :fetcher github))
+
+  (require 'quelpa-use-package)
+  (setq use-package-ensure-function 'quelpa
+        use-package-always-ensure t)
+#+END_SRC
+
+* Completion
+
+Emacs has a lot of functionalities, the auto completion is extremely important.
+
+** Vertico
+
+Vertico provide a more straight forward UI for the default completion system.
+Use =vertico-directory= to get a helm-like experience when you want to quickly
+go back to the upper level directories.
+
+#+BEGIN_SRC elisp
+  (use-package vertico
+    :quelpa (vertico :fetcher github :repo "minad/vertico" :files ("*.el" "extensions/*.el"))
+    :init
+    (vertico-mode)
+    :bind (:map vertico-map
+                ("RET" . vertico-directory-enter)
+                ("<left>" . vertico-directory-delete-char)
+                ("M-DEL" . vertico-directory-delete-word)))
+#+END_SRC
+
+** Consult
+
+=Consult-buffer= provides previewing compared to the default =switch-to-buffer=.
+
+#+BEGIN_SRC elisp
+  (use-package consult
+    :quelpa (consult :fetcher github :repo "minad/consult")
+    :bind (
+       ("C-b" . consult-buffer)
+       ("M-s" . consult-line)
+       ("M-g g" . consult-goto-line)
+       ("C-x C-S-f" . consult-file-externally)
+       :map org-mode-map
+       ("M-o" . consult-outline)))
+#+END_SRC
+
+** Orderless
+
+Use Orderless to enable fuzzy matching for vertico and consult.
+
+#+BEGIN_SRC elisp
+  (use-package orderless
+    :quelpa (orderless :fetcher github :repo "oantolin/orderless")
+    :init
+    (setq completion-styles '(orderless basic)
+          completion-category-defaults nil
+          completion-category-overrides '((file (styles partial-completion)))))
+#+END_SRC
+
+** Company
+
+Company provide completion for editing codes, just like the other IDE.
+Though company-mode is a completion frontend, it also provides a lot of backends
+by default, it is quite annoying when editing codes. Therefore, I only preserves
+4 backends. Notice that =company-capf= is used by lsp-mode.
+
+#+BEGIN_SRC elisp
+  (use-package company
+    :quelpa (company :fetcher github :repo "company-mode/company-mode")
+    :ensure t
+    :custom
+    (company-idle-delay 0.3)
+    (company-selection-wrap-around t)
+    (company-minimum-prefix-length 2)
+    (company-show-numbers t)
+    (company-backends '(company-elisp company-capf company-files company-keywords))
+    :hook
+    (after-init . global-company-mode))
+#+END_SRC
+
+** Embark
+
+#+BEGIN_SRC elisp
+  (use-package embark
+    :quelpa (embark :fetcher github
+                    :repo "oantolin/embark"
+                    :files ("*.el" "embark.texi"))
+    :bind
+    (("C-." . embark-act)
+     ("C-;" . embark-dwim)
+     ("C-h B" . embark-bindings))
+    :after consult
+    :hook
+    (embark-collect-mode . consult-preview-at-point-mode)
+    )
+#+END_SRC
+
+* Magit
+
+#+BEGIN_SRC elisp
+  (use-package magit
+    :quelpa (magit :fetcher github :repo "magit/magit")
+    :bind ("C-x g" . magit-status))
+#+END_SRC
+
+* Theme
+
+** Doom Theme
+#+BEGIN_SRC elisp
+  (use-package doom-themes
+    :quelpa (doom-themes :fetcher github
+                         :repo "doomemacs/themes"
+                         :files ("*.el" "themes/doom-molokai-theme.el" "extensions/*.el"))
+    :ensure t
+    :config
+    (setq doom-themes-enable-bold t
+          doom-themes-enable-italic t)
+    (load-theme 'doom-molokai t)
+    (doom-themes-org-config))
+#+END_SRC
+
+** UI
+
+Disable some default interface to make the screen tidier.
+
+#+BEGIN_SRC elisp
+  (setq inhibit-startup-screen t)
+  (dolist (mode '(tool-bar-mode
+                  scroll-bar-mode
+                  menu-bar-mode
+                  blink-cursor-mode))
+    (funcall mode 0))
+#+END_SRC
+
+Cannot directly set-cursor-color, since it doesn't affect emacsclient.
+Set cursor color to #fc03ba (a puple family color) after frame creation.
+
+#+BEGIN_SRC elisp
+  (add-hook 'after-make-frame-functions
+            (lambda (frame)
+              (select-frame frame)
+              (set-cursor-color "#fc03ba")
+              ))
+#+END_SRC
+
+** Modeline
+
+Use doom-modeline as a temp solution. Use M-x all-the-icons-install-fonts to
+install fonts if the modeline font is strange.
+
+#+BEGIN_SRC elisp
+  (use-package doom-modeline
+    :quelpa (doom-modeline :fetcher github :repo "seagle0128/doom-modeline")
+    :ensure t
+    :hook ((after-init . doom-modeline-mode)
+           (after-init . column-number-mode)))
+#+END_SRC
+
+* Editor
+
+Configuration for general editing.
+
+** Indentation
+
+Emacs use tab as the default indentation character. It is now more common to use
+space instead.
+
+#+BEGIN_SRC elisp
+  (setq-default indent-tabs-mode nil)
+  (setq-default tab-width 4)
+#+END_SRC
+
+** Line Movement
+
+Swapping two line is a common function for a modern editor, most editor bind
+these two function with M-<up>/<down> or C-S-<up>/<down>. However, Emacs builtin
+=transpose-lines= (C-x C-t) is quite different from the other editors, so I
+write it myself. [[https://www.emacswiki.org/emacs/MoveLine][Reference]]
+
+#+BEGIN_SRC elisp
+  (defun move-line-up ()
+    "swap the current line and the previous line"
+    (interactive)
+    (let ((ncol (current-column)))
+      (transpose-lines 1)
+      (forward-line -2)
+      (forward-char ncol)
+      ))
+
+  (defun move-line-down ()
+    "swap the current line and the next line"
+    (interactive)
+    (let ((ncol (current-column)))
+      (forward-line 1)
+      (transpose-lines 1)
+      (forward-line -1)
+      (forward-char ncol)
+      ))
+
+  (global-set-key (kbd "M-<up>") #'move-line-up)
+  (global-set-key (kbd "M-<down>") #'move-line-down)
+#+END_SRC
+
+** Auto Save and Auto Backup
+
+#+BEGIN_SRC elisp
+  (setq make-backup-files nil
+        auto-save-default nil)
+#+END_SRC
+
+** Linum Mode
+
+#+BEGIN_SRC elisp
+  (add-hook 'prog-mode-hook #'linum-mode)
+#+END_SRC
+
+* Org Mode
+
+** Overlong Highlight
+
+If a line contains more than 80 characters, the exceeding part will be mark red. Just like this.
+Redefine the function maps to RET. Make sure the overlong highligh is removed
+right after we put the exceeding part to the next line.
+
+#+BEGIN_SRC elisp
+  (defvar one-line-max-length 80)
+  (defun one-line-max-length-regexp ()
+    (format "^.\\{%d\\}\\(.*\\)" one-line-max-length))
+
+  (defface one-line-overlong-face
+    '((t :foreground "red"
+         :weight bold))
+    "Face for the overlong part of one line"
+    :group 'org-mode)
+
+  (font-lock-add-keywords
+   'org-mode
+   '((eval . `(,(one-line-max-length-regexp) (1 'one-line-overlong-face)))))
+
+  (define-key org-mode-map (kbd "RET") (lambda ()
+                                         (interactive)
+                                         (newline-and-indent)
+                                         (font-lock-flush)))
+  (define-key org-mode-map (kbd "C-c c") #'org-latex-preview)
+
+#+END_SRC
+
+** Org Bullets
+
+Make org-mode looks prettier.
+
+#+BEGIN_SRC elisp
+  (use-package org-bullets
+    :quelpa (org-bullets :fetcher github
+                         :repo "sabof/org-bullets")
+    :custom
+    (org-bullets-bullet-list '("●" "☉" "➤" "➺"))
+    (org-ellipsis " ↴") ;; this is not a part of org-bullets
+    :hook (org-mode . (lambda () (org-bullets-mode 1))))
+#+END_SRC
+
+* Programming
+
+** LSP Mode
+
+#+BEGIN_SRC elisp
+  (use-package lsp-mode
+    :quelpa (lsp-mode :fetcher github
+                      :repo "emacs-lsp/lsp-mode"
+                      :files (:defaults
+                              "clients/*.el"))
+    :init
+    (setq lsp-keymap-prefix "C-c l")
+    :custom
+    (lsp-idle-delay 0.1)
+    :hook ((python-mode . lsp)
+           (c-mode . lsp)
+           (c++-mode . lsp)
+           (rust-mode . lsp)))
+#+END_SRC
+
+** Python
+
+*** Pyright
+
+In my experience, pyls is quite slow when you use huge package like numpy or
+pytorch. Use pyright might get a better performance, though it does not behave
+well if you use huggingface transformers, you might see a lot of red lines. 
+
+#+BEGIN_SRC elisp
+  (use-package lsp-pyright
+    :quelpa (lsp-pyright :fetcher github
+                         :repo "emacs-lsp/lsp-pyright")
+    :custom
+    (lsp-pyright-extra-paths '("~/.local/lib/python3.7/site-packages")))
+#+END_SRC
+
+** Rust
+
+#+BEGIN_SRC elisp
+  (use-package rust-mode
+    :quelpa (rust-mode :fetcher github
+                       :repo "rust-lang/rust-mode")
+    :custom
+    (rust-format-on-save t)
+    :bind (:map rust-mode-map
+                ("C-c C-c" . rust-run))
+    )
+#+END_SRC
