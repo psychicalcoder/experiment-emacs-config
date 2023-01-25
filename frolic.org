@@ -20,6 +20,14 @@ install any third party source as long as you can provide a MELPA style recipes.
   )
   (add-to-list 'load-path "~/.emacs.d/bootstrap/")
 
+  (require 'package)
+  (let ((elpa-package '(spinner compat)))
+    (mapcar (lambda (pkg)
+              (if (not (package-installed-p pkg))
+                  (package-install pkg)))
+            elpa-package))
+  ;(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+
   (require 'quelpa)
 
   (quelpa
@@ -29,7 +37,7 @@ install any third party source as long as you can provide a MELPA style recipes.
 
   (require 'quelpa-use-package)
   (setq use-package-ensure-function 'quelpa
-        use-package-always-ensure t)
+    use-package-always-ensure t)
 #+END_SRC
 
 * Completion
@@ -98,7 +106,7 @@ by default, it is quite annoying when editing codes. Therefore, I only preserves
     (company-selection-wrap-around t)
     (company-minimum-prefix-length 2)
     (company-show-numbers t)
-    (company-backends '(company-elisp company-capf company-files company-keywords))
+    (company-backends '(company-elisp company-files company-capf company-keywords))
     :hook
     (after-init . global-company-mode))
 #+END_SRC
@@ -109,11 +117,12 @@ by default, it is quite annoying when editing codes. Therefore, I only preserves
   (use-package embark
     :quelpa (embark :fetcher github
                     :repo "oantolin/embark"
-                    :files ("*.el" "embark.texi"))
+                    :files ("*.el" "embark.texi" (:exclude "avy-embark-collect.el")))
     :bind
     (("C-." . embark-act)
      ("C-;" . embark-dwim)
-     ("C-h B" . embark-bindings))
+     ("C-h B" . embark-bindings)
+     ("C-C" . embark-collect))
     :after consult
     :hook
     (embark-collect-mode . consult-preview-at-point-mode)
@@ -239,6 +248,20 @@ write it myself. [[https://www.emacswiki.org/emacs/MoveLine][Reference]]
   (add-hook 'prog-mode-hook #'linum-mode)
 #+END_SRC
 
+** Avy
+
+I have been bothering by fast moving in emacs, I want someting that help me move
+the cursor immediately as I want. Unfortunately it is not easy to craft an
+usable eye-tracking functionality. And I don't like vi's operating mode.
+I have known that Avy might be a killer since I saw [[https://karthinks.com/software/avy-can-do-anything/][avy-can-do-anything]]
+one year ago.
+
+#+BEGIN_SRC elisp
+  (use-package avy
+    :quelpa (avy :fetcher github :repo "abo-abo/avy")
+    :bind ("M-j" . avy-goto-char-timer))
+#+END_SRC
+
 * Org Mode
 
 ** Overlong Highlight
@@ -284,6 +307,13 @@ Make org-mode looks prettier.
     :hook (org-mode . (lambda () (org-bullets-mode 1))))
 #+END_SRC
 
+** ox-rst Export to reStructuredText
+#+BEGIN_SRC elisp
+  (use-package ox-rst
+    :quelpa (ox-rst :fetcher github
+                    :repo "msnoigrs/os-rst"))
+#+END_SRC
+
 * Programming
 
 ** LSP Mode
@@ -297,7 +327,7 @@ Make org-mode looks prettier.
     :init
     (setq lsp-keymap-prefix "C-c l")
     :custom
-    (lsp-idle-delay 0.1)
+    (lsp-idle-delay 0.6)
     :hook ((python-mode . lsp)
            (c-mode . lsp)
            (c++-mode . lsp)
@@ -326,9 +356,18 @@ well if you use huggingface transformers, you might see a lot of red lines.
   (use-package rust-mode
     :quelpa (rust-mode :fetcher github
                        :repo "rust-lang/rust-mode")
+    :requires lsp-mode
     :custom
     (rust-format-on-save t)
     :bind (:map rust-mode-map
                 ("C-c C-c" . rust-run))
     )
+#+END_SRC
+
+** Yaml
+
+#+BEGIN_SRC elisp
+  (use-package yaml-mode
+    :quelpa (yaml-mode :fetcher github
+                       :repo "yoshiki/yaml"))
 #+END_SRC
